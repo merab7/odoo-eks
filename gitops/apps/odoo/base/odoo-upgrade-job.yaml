@@ -37,8 +37,12 @@ spec:
               echo "=== odoo -i/-u ${MODULES} ==="
               # -i installs anything missing, -u updates what is already installed.
               # Running only -u would silently no-op on a module that was never installed.
+              # This Job overrides `command`, which replaces the image entrypoint — so the
+              # entrypoint script that normally maps $PASSWORD to --db_password never runs.
+              # Pass it explicitly or psycopg2 fails with "fe_sendauth: no password supplied".
               odoo -c /etc/odoo/odoo.conf \
                    -d odoo \
+                   --db_password="${PASSWORD}" \
                    -i "${MODULES}" \
                    -u "${MODULES}" \
                    --stop-after-init \

@@ -19,6 +19,20 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      # `odoo-data` is a ReadWriteOnce EBS volume. On an update the previous Odoo pod is
+      # still running and holds it, so a Job scheduled onto a different node fails with
+      # "Multi-Attach error". Two nodes can never share an RWO volume; one node can.
+      # Prefer — not require — the Odoo node, so a first install (where no Odoo pod exists
+      # yet, because the Deployment is wave 2) can still schedule anywhere.
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app: odoo
       securityContext:
         runAsUser: 101
         runAsGroup: 101
@@ -68,8 +82,11 @@ spec:
                   name: odoo-db
                   key: POSTGRES_PASSWORD
           resources:
-            requests: { cpu: 500m, memory: 1536Mi }
-            limits:   { memory: 3Gi }
+            # Deliberately smaller than the Deployment's request so the Job can fit beside
+            # a running Odoo pod on one node — co-location is what avoids the Multi-Attach
+            # failure above. A migration is short-lived and single-threaded.
+            requests: { cpu: 250m, memory: 1Gi }
+            limits:   { memory: 2Gi }
           volumeMounts:
             - name: config
               mountPath: /etc/odoo

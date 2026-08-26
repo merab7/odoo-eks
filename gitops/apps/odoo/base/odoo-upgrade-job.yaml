@@ -65,9 +65,16 @@ spec:
 
               echo "=== asserting on the log, not the exit code ==="
               # Odoo exits 0 on plenty of things that are not success.
-              if grep -qE '\b(CRITICAL|ERROR)\b' "${LOG}"; then
+              # Match only Odoo's own log records at ERROR/CRITICAL level:
+              #   2026-08-26 18:44:10,976 8 ERROR odoo odoo.modules.loading: ...
+              # A bare word-match on ERROR also catches docutils noise such as
+              #   <string>:38: (ERROR/3) Unexpected indentation.
+              # emitted while rendering a module's reStructuredText description — harmless,
+              # but enough to fail an otherwise successful migration.
+              ODOO_ERR='^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:,]+ [0-9]+ (CRITICAL|ERROR) '
+              if grep -qE "${ODOO_ERR}" "${LOG}"; then
                 echo "FAIL: errors present in update log"
-                grep -nE '\b(CRITICAL|ERROR)\b' "${LOG}" | head -50
+                grep -nE "${ODOO_ERR}" "${LOG}" | head -50
                 exit 1
               fi
               if ! grep -q 'Modules loaded' "${LOG}"; then

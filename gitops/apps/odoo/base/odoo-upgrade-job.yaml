@@ -1,0 +1,72 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: odoo-upgrade
+  namespace: odoo
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 0        # a failed migration must not silently retry
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: upgrade
+          image: odoo-app         # same digest as the Deployment
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+
+              MODULES="base,hello_odoo"
+              LOG=/tmp/upgrade.log
+
+              echo "=== odoo -i/-u ${MODULES} ==="
+              # -i installs anything missing, -u updates what is already installed.
+              # Running only -u would silently no-op on a module that was never installed.
+              odoo -c /etc/odoo/odoo.conf \
+                   -d odoo \
+                   -i "${MODULES}" \
+                   -u "${MODULES}" \
+                   --stop-after-init \
+                   --no-http \
+                   --max-cron-threads=0 2>&1 | tee "${LOG}"
+
+              echo "=== asserting on the log, not the exit code ==="
+              # Odoo exits 0 on plenty of things that are not success.
+              if grep -qE '\b(CRITICAL|ERROR)\b' "${LOG}"; then
+                echo "FAIL: errors present in update log"
+                grep -nE '\b(CRITICAL|ERROR)\b' "${LOG}" | head -50
+                exit 1
+              fi
+              if ! grep -q 'Modules loaded' "${LOG}"; then
+                echo "FAIL: 'Modules loaded' never appeared — registry did not finish"
+                exit 1
+              fi
+              echo "OK"
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: odoo-db
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests: { cpu: 500m, memory: 1536Mi }
+            limits:   { memory: 3Gi }
+          volumeMounts:
+            - name: config
+              mountPath: /etc/odoo
+            - name: data
+              mountPath: /var/lib/odoo
+      volumes:
+        - name: config
+          configMap:
+            name: odoo-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: odoo-data

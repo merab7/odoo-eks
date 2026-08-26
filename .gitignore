@@ -1,0 +1,23 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+*.tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Variable files may contain secrets — state lives in S3, not here.
+*.tfvars
+*.tfvars.json
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

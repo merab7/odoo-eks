@@ -7,6 +7,6 @@ resources:
 - ../../base
 
 images:
-- name: odoo-app
+- digest: sha256:fb5040f6ab3d77a5047f4d2ccc028727c860594feff3a6137c9d41199541e0e9
+  name: odoo-app
   newName: 846898691082.dkr.ecr.eu-central-1.amazonaws.com/odoo
-  newTag: bootstrap

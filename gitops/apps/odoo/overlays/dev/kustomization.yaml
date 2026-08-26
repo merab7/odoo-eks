@@ -8,5 +8,5 @@ resources:
 
 images:
 - name: odoo-app
-  newName: .dkr.ecr..amazonaws.com/odoo
+  newName: 846898691082.dkr.ecr.eu-central-1.amazonaws.com/odoo
   newTag: bootstrap

@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: postgres
   namespace: odoo
+  annotations:
+    # Wave 0 (the default) — the database must be Healthy before the wave 1 migration.
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   clusterIP: None
   selector:

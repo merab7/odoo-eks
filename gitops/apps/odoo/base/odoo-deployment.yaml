@@ -3,6 +3,11 @@ kind: PersistentVolumeClaim
 metadata:
   name: odoo-data
   namespace: odoo
+  annotations:
+    # Wave 1, same as the upgrade Job. The StorageClass uses WaitForFirstConsumer,
+    # so this PVC stays Pending — and Argo CD reports it Progressing — until a pod
+    # actually mounts it. Placing it in wave 0 would stall the wave forever.
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: auto-ebs-sc
@@ -15,6 +20,8 @@ kind: PodDisruptionBudget
 metadata:
   name: odoo
   namespace: odoo
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   minAvailable: 0        # single-replica test tier; see Section 13
   selector:
@@ -26,6 +33,9 @@ kind: Deployment
 metadata:
   name: odoo
   namespace: odoo
+  annotations:
+    # Wave 2: only start serving once the migration Job in wave 1 has completed.
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   replicas: 1
   strategy:

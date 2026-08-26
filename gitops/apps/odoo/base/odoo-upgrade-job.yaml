@@ -4,13 +4,16 @@ metadata:
   name: odoo-upgrade
   namespace: odoo
   annotations:
-    # Wave 1: after postgres (wave 0), before the serving Deployment (wave 2).
-    # Not a PreSync hook — hooks run before the Sync phase, so the PVC, ConfigMap,
-    # Secret and Postgres this Job depends on would not exist yet on a fresh install.
+    # A *Sync*-phase hook, not PreSync: PreSync runs before anything else exists, so the
+    # PVC, ConfigMap, Secret and Postgres this Job needs would be missing on a fresh
+    # install and the sync would deadlock. Sync hooks honour sync waves, so wave 1 still
+    # places this after postgres (wave 0) and before the serving Deployment (wave 2).
+    argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/sync-wave: "1"
-    # Jobs are immutable; Replace lets Argo CD recreate this one when the image
-    # digest changes, which is exactly when a migration needs to re-run.
-    argocd.argoproj.io/sync-options: Replace=true
+    # A Job's spec is immutable, so it cannot be updated in place — Replace=true fails
+    # with "spec.selector: Required value". Deleting the previous Job before creating the
+    # new one is the only way to re-run a migration when the image digest changes.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   backoffLimit: 0        # a failed migration must not silently retry
   template:

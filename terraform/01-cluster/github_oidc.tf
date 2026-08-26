@@ -12,6 +12,17 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 locals {
   github_oidc_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+
+  github_owner = split("/", var.github_repo)[0]
+  github_name  = split("/", var.github_repo)[1]
+
+  # Repos created on/after 2026-07-15 emit an *immutable* sub claim embedding numeric IDs:
+  #   repo:<owner>@<owner_id>/<repo>@<repo_id>:ref:refs/heads/<branch>
+  # The older name-only pattern can never match those, so allow both forms.
+  github_subs = compact([
+    "repo:${var.github_repo}:*",
+    var.github_owner_id != "" && var.github_repo_id != "" ? "repo:${local.github_owner}@${var.github_owner_id}/${local.github_name}@${var.github_repo_id}:*" : "",
+  ])
 }
 
 data "aws_iam_policy_document" "gha_trust" {
@@ -34,7 +45,7 @@ data "aws_iam_policy_document" "gha_trust" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:*"]
+      values   = local.github_subs
     }
   }
 }
